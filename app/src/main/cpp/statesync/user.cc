@@ -74,7 +74,6 @@ string UserStream::diff_from(const UserStream &existing) const {
       case UserByteType: {
         const char *bytes = my_it->userbyte.c;
         if (output.instruction_size() > 0) {
-          LOGD("append\n");
           output.mutable_instruction( output.instruction_size() - 1 )->MutableExtension( keystroke )->mutable_keys()->append( string( bytes, 8 ) );
         } else {
           Instruction *new_inst = output.add_instruction();
