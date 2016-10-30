@@ -33,62 +33,17 @@
 #include <jni.h>
 #include <string>
 #include <sys/ioctl.h>
-#include<arpa/inet.h>
-// #include <sys/socket.h>
 #include <linux/usbdevice_fs.h>
 
 #include "main.h"
 #include "common.h"
 #include "networktransport-impl.h"
 
-// #include "crypto/crypto.h"
-
 // ~/Downloads/protoc-3.1.0-linux-x86_64.exe --proto_path=cpp --cpp_out=cpp/protobuf-generated cpp/protobufs/hostinput.proto cpp/protobufs/transportinstruction.proto cpp/protobufs/userinput.proto
 
 using namespace System;
-// using namespace Crypto;
 using namespace std;
 using namespace Network;
-
-int createSocket(sockaddr_in &si_other, socklen_t &slen) {
-  slen = sizeof(si_other);
-  int udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (udpSocket == -1) {
-    LOGV("No UDP socket");
-  }
-
-  memset((char *) &si_other, 0, sizeof(si_other));
-  si_other.sin_family = AF_INET;
-  si_other.sin_port = htons(PORT);
-
-  if (inet_aton(SERVER, &si_other.sin_addr) == 0) {
-    fprintf(stderr, "inet_aton() failed\n");
-  }
-
-  return udpSocket;
-}
-
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_github_morj_iotkbd_MainActivity_sendSomeUdp(
-    JNIEnv *env,
-    jobject /* this */) {
-  /*sockaddr_in si_other;
-  socklen_t slen;
-
-  int udpSocket = createSocket(si_other, slen);
-
-  char *message = (char *) "xoxoxo\n";
-
-  for (int i = 0; i < 20; ++i) {
-      if (sendto(udpSocket, message, strlen(message), 0, (struct sockaddr *) &si_other, slen) == -1) {
-          LOGV("Can't send message");
-      }
-  }*/
-
-  /*char bAllowMultiple = true;
-  setsockopt(udpSocket, SOL_SOCKET, SO_REUSEADDR, &bAllowMultiple, sizeof(bAllowMultiple));*/
-}
 
 extern "C" {
 JNIEXPORT void JNICALL
@@ -99,8 +54,6 @@ Java_com_github_morj_iotkbd_MainActivity_notifyDeviceAttached(JNIEnv *env, jclas
   Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
   //Session session(key);
 
-  sockaddr_in si_other;
-  socklen_t slen;
   UserStream me, remote;
 
   Transport<UserStream, UserStream> *transport;
@@ -119,18 +72,11 @@ Java_com_github_morj_iotkbd_MainActivity_notifyDeviceAttached(JNIEnv *env, jclas
 
   LOGV("Select inited");
 
-  // sleep(5);
-
-  // State *state = new State(fd, sel, transport);
-
-  char message[80];
-
   int urbcount = 2;
   struct usbdevfs_urb urbs[urbcount];
   memset(urbs, 0, sizeof(urbs));
   urbs[0].buffer_length = 8;
   urbs[1].buffer_length = 4;
-  /* urbs[2].buffer_length = 15;*/
 
   urbs[0].endpoint = 129;
   urbs[1].endpoint = 130;
@@ -176,14 +122,11 @@ Java_com_github_morj_iotkbd_MainActivity_notifyDeviceAttached(JNIEnv *env, jclas
         sel.add_fd(*it);
       }
 
-      // LOGV("Prepare loop");
-
-      int selected = -1;
       try {
         if (sel.signal(signal)) {
           readKeyboard = true;
         } else {
-          selected = sel.select(transport->wait_time());
+          int selected = sel.select(transport->wait_time());
           if (selected < 0) {
             perror("select");
           }
@@ -266,7 +209,7 @@ Java_com_github_morj_iotkbd_MainActivity_notifyDeviceDetached(JNIEnv *env, jclas
 }
 }
 
-static inline uint16_t cpu_to_le16(const uint16_t x) {
+/*static inline uint16_t cpu_to_le16(const uint16_t x) {
   union {
     uint8_t b8[2];
     uint16_t b16;
@@ -278,7 +221,7 @@ static inline uint16_t cpu_to_le16(const uint16_t x) {
   return _tmp.b16;
 }
 
-/*struct usbdevfs_ctrltransfer
+struct usbdevfs_ctrltransfer
 {
     unsigned char bRequestType;
     unsigned char bRequest;
