@@ -1,0 +1,3 @@
+[submodule "app/src/main/cpp/libmosh"]
+	path = app/src/main/cpp/libmosh
+	url = git@github.com:morj/mosh.git
