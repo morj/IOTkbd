@@ -1,4 +1,6 @@
 language: android
+git:
+  submodules: false
 android:
   components:
     - tools
@@ -6,6 +8,8 @@ android:
     - platform-tools
     - build-tools-24.0.2
     - android-24
-
+before_install:
+    - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
+    - git submodule update --init --recursive
 script:
    - ./gradlew build
