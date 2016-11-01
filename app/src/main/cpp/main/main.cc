@@ -35,6 +35,8 @@
 #include <sys/ioctl.h>
 #include <linux/usbdevice_fs.h>
 
+#include <memory>
+
 #include "main.h"
 #include "common.h"
 #include "networktransport-impl.h"
@@ -54,7 +56,7 @@ void notifyDeviceAttached(int fd, int endp)
 
 	  UserStream me, remote;
 
-	  Transport<UserStream, UserStream> *transport = new Transport<UserStream, UserStream>(
+	  auto transport = std::make_unique<Transport<UserStream, UserStream>>(
 			me, remote, key.printable_key().c_str(), SERVER, PORTS
 		);
 	  
