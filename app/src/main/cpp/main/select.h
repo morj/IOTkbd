@@ -96,7 +96,7 @@ public:
   
   static void clear_fds_s(void)
   {
-    return get_instance().clear_fds(fd);
+    return get_instance().clear_fds();
   }
 
   void clear_got_signal( void )
