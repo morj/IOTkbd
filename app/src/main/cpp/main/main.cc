@@ -39,6 +39,7 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include <numeric>
 
 #include "main.h"
 #include "common.h"
@@ -176,22 +177,12 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 		  
 		  transport->get_current_state().push_back(Network::UserByte(buf));
 
-		  bool network_ready_to_read = false;
-
 		  // ioctl(fd, USBDEVFS_SUBMITURB, urb);
 		  urb = 0;
-
-		  for (std::vector<int>::const_iterator it = fd_list.begin();
-			   it != fd_list.end();
-			   it++) {
-			if (Select::read_s(*it)) {
-			  /* packet received from the network */
-			  /* we only read one socket each run */
-			  network_ready_to_read = true;
-			} else {
-			  //LOGV("No data from fd: %d", *it);
-			}
-		  }
+		  
+		  bool network_ready_to_read = std::accumulate(fd_list.begin(),fd_list.end(),false,
+		    //perhaps can swap || args here?
+		    [](bool r, int fd)->bool { return Select::read_s(fd)||r; });
 
 		  // LOGV("Ready to read: %d", network_ready_to_read);
 
