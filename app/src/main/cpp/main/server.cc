@@ -38,19 +38,13 @@
 
 using namespace Network;
 
-int main(int argc, char *argv[]) {
+void runServer()
+{
   UserStream me, remote;
 
-  Transport<UserStream, UserStream> *n;
-
-  try {
-    n = new Transport<UserStream, UserStream>(me, remote, NULL, "1337");
-    LOGE("Port bound is %s, key is %s\n", n->port().c_str(), n->get_key().c_str());
-  } catch (const std::exception &e) {
-    LOGE("Fatal startup error: %s\n", e.what());
-    exit(1);
-  }
-
+  Transport<UserStream, UserStream> *n = new Transport<UserStream, UserStream>(me, remote, NULL, "1337");
+  LOGE("Port bound is %s, key is %s\n", n->port().c_str(), n->get_key().c_str());
+ 
   n->set_verbose();
 
   Select &sel = Select::get_instance();
@@ -88,4 +82,13 @@ int main(int argc, char *argv[]) {
   }
 
   delete n;
+}
+
+int main(int argc, char *argv[]) {
+  try {
+   runServer();
+  } catch (const std::exception &e) {
+    LOGE("Fatal startup error: %s\n", e.what());
+    exit(1);
+  }
 }
