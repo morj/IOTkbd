@@ -127,11 +127,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 		parent_urb.submit(fd);
 	  }
 	  std::vector<int> fd_list(transport->fds());
-	  for (std::vector<int>::const_iterator it = fd_list.begin();
-		   it != fd_list.end();
-		   it++) {
-		Select::add_fd_s(*it);
-	  }
+	  std::for_each(fd_list.begin(),fd_list.end(),Select::add_fd_s);
 
 	  try {
 		if (Select::signal_s(signal)) {
