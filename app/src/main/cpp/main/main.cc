@@ -110,7 +110,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 
   //perhaps std::find will suffice instead?
   auto parent_iter = find_last(urbs.begin(), urbs.end(), 
-	   [fd](USBRequestBlock& urb)->bool{ return urb.submit(fb)>=0; });
+	   [fd](USBRequestBlock& urb)->bool{ return urb.submit(fd)>=0; });
 
   bool readKeyboard = false;
   if (parent_iter == urbs.end()) {
@@ -126,7 +126,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 	  sel.clear_fds();
 
 	  if (readKeyboard) {
-		parent_urb.submit(fb);
+		parent_urb.submit(fd);
 	  }
 	  std::vector<int> fd_list(transport->fds());
 	  for (std::vector<int>::const_iterator it = fd_list.begin();
