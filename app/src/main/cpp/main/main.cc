@@ -52,165 +52,165 @@ using namespace Network;
 
 class USBRequestBlock
 {
-	std::vector<char>  buffer;
-	usbdevfs_urb       urb;
+  std::vector<char>  buffer;
+  usbdevfs_urb       urb;
 public:
-	USBRequestBlock(int buffer_length, unsigned char endpoint, unsigned int signr) :
-		buffer(buffer_length),
-		urb({USBDEVFS_URB_TYPE_INTERRUPT,endpoint,0,0,buffer.data(),buffer_length,0,0,0,0,signr})
-		{}
-		
-	int submit(int fd)
-	{
-		int result = ioctl(fd, USBDEVFS_SUBMITURB, &urb);
-		LOGV("Ret: %d", result);
-		LOGV("Err: %d", errno);
-		return result;
-	}
-	
-	unsigned int getSignr() const
-	{
-		return urb.signr;
-	}
+  USBRequestBlock(int buffer_length, unsigned char endpoint, unsigned int signr) :
+  buffer(buffer_length),
+  urb({USBDEVFS_URB_TYPE_INTERRUPT,endpoint,0,0,buffer.data(),buffer_length,0,0,0,0,signr})
+  {}
+
+  int submit(int fd)
+  {
+    int result = ioctl(fd, USBDEVFS_SUBMITURB, &urb);
+    LOGV("Ret: %d", result);
+    LOGV("Err: %d", errno);
+    return result;
+  }
+
+  unsigned int getSignr() const
+  {
+    return urb.signr;
+  }
 };
 
 template<class Iter, class Func> Iter find_last(Iter b, Iter e, Func f)
 {
-	Iter r = e;
-	for(; b != e; ++b)
-	{
-		if(f(*b))
-			r = b;
-	}
-	return r;
+  Iter r = e;
+  for(; b != e; ++b)
+  { 
+    if(f(*b))
+      r = b;
+  }
+  return r;
 }
 
 void notifyDeviceAttached(int fd, int endp)
 {
-	LOGV("Device attached: %d, endp: %d", fd, endp);
+LOGV("Device attached: %d, endp: %d", fd, endp);
 
-	Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
-	  //Session session(key);
+Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
+  //Session session(key);
 
-	  UserStream me, remote;
+  UserStream me, remote;
 
-	  auto transport = std::make_unique<Transport<UserStream, UserStream>>(
-			me, remote, key.printable_key().c_str(), SERVER, PORTS
-		);
-	  
+  auto transport = std::make_unique<Transport<UserStream, UserStream>>(
+		me, remote, key.printable_key().c_str(), SERVER, PORTS
+	);
+  
 
-	  LOGV("Inited");
+  LOGV("Inited");
 
-	  Select &sel = Select::get_instance();
+  Select &sel = Select::get_instance();
 
-	  LOGV("Select inited");
+  LOGV("Select inited");
 
-	  std::array<USBRequestBlock,2> urbs{{8,129,SIGUSR2},
-										 {4,130,SIGUSR1}};
+  std::array<USBRequestBlock,2> urbs{{{8,129,SIGUSR2},
+  {4,130,SIGUSR1}}};
 
-	  //perhaps std::find will suffice instead?
-	  auto parent_iter = find_last(urbs.begin(), urbs.end(), 
-	       [fd](USBRequestBlock& urb)->bool{ return urb.submit(fb)>=0; });
+  //perhaps std::find will suffice instead?
+  auto parent_iter = find_last(urbs.begin(), urbs.end(), 
+	   [fd](USBRequestBlock& urb)->bool{ return urb.submit(fb)>=0; });
 
-	  bool readKeyboard = false;
-	  if (parent_iter == urbs.end()) {
-		LOGV("no ioctl 1 :(");
-	  } else {
-		auto parent_urb = *parent_iter;
-		LOGV("start loop");
+  bool readKeyboard = false;
+  if (parent_iter == urbs.end()) {
+	LOGV("no ioctl 1 :(");
+  } else {
+	auto parent_urb = *parent_iter;
+	LOGV("start loop");
 
-		unsigned int signal = parent_urb.getSignr();
-		sel.add_signal(signal);
+	unsigned int signal = parent_urb.getSignr();
+	sel.add_signal(signal);
 
-		while (true) {
-		  sel.clear_fds();
+	while (true) {
+	  sel.clear_fds();
 
-		  if (readKeyboard) {
-			parent_urb.submit(fb);
+	  if (readKeyboard) {
+		parent_urb.submit(fb);
+	  }
+	  std::vector<int> fd_list(transport->fds());
+	  for (std::vector<int>::const_iterator it = fd_list.begin();
+		   it != fd_list.end();
+		   it++) {
+		sel.add_fd(*it);
+	  }
+
+	  try {
+		if (sel.signal(signal)) {
+		  readKeyboard = true;
+		} else {
+		  int selected = sel.select(transport->wait_time());
+		  if (selected < 0) {
+			perror("select");
 		  }
-		  std::vector<int> fd_list(transport->fds());
+		  readKeyboard = sel.signal(signal);
+		  // LOGV("Got fd: %d, from: %p", selected, (void *) &sel);
+		}
+
+		transport->tick();
+	  } catch (const std::exception &e) {
+		LOGE("Client error: %d\n", 0); //e.what()
+	  }
+
+	  if (readKeyboard) {
+		// LOGV("Read kbd");
+		struct usbdevfs_urb *urb = 0;
+		int iores = ioctl(fd, USBDEVFS_REAPURB, &urb);
+		sel.clear_got_signal();
+		if (iores) {
+		  LOGV("Ioctl returns %d", iores);
+		  if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {
+			LOGV("Error: %d", errno);
+			// Stop the thread if the handle closes
+			break;
+		  } else if (errno == EPIPE && urb) {
+			LOGV("Error: EPIPE");
+			// On EPIPE, clear halt on the endpoint
+			ioctl(fd, USBDEVFS_CLEAR_HALT, &urb->endpoint);
+			// Re-submit the URB
+			if (urb) {
+			  ioctl(fd, USBDEVFS_SUBMITURB, urb);
+			}
+			urb = 0;
+		  }
+		}
+		if (urb) {
+		  char *buf = (char *) (urb->buffer);
+
+		  //sprintf(message, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
+		  //LOGV("%s", message);
+		  
+		  transport->get_current_state().push_back(Network::UserByte(buf));
+
+		  bool network_ready_to_read = false;
+
+		  // ioctl(fd, USBDEVFS_SUBMITURB, urb);
+		  urb = 0;
+
 		  for (std::vector<int>::const_iterator it = fd_list.begin();
 			   it != fd_list.end();
 			   it++) {
-			sel.add_fd(*it);
-		  }
-
-		  try {
-			if (sel.signal(signal)) {
-			  readKeyboard = true;
+			if (sel.read(*it)) {
+			  /* packet received from the network */
+			  /* we only read one socket each run */
+			  network_ready_to_read = true;
 			} else {
-			  int selected = sel.select(transport->wait_time());
-			  if (selected < 0) {
-				perror("select");
-			  }
-			  readKeyboard = sel.signal(signal);
-			  // LOGV("Got fd: %d, from: %p", selected, (void *) &sel);
-			}
-
-			transport->tick();
-		  } catch (const std::exception &e) {
-			LOGE("Client error: %d\n", 0); //e.what()
-		  }
-
-		  if (readKeyboard) {
-			// LOGV("Read kbd");
-			struct usbdevfs_urb *urb = 0;
-			int iores = ioctl(fd, USBDEVFS_REAPURB, &urb);
-			sel.clear_got_signal();
-			if (iores) {
-			  LOGV("Ioctl returns %d", iores);
-			  if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {
-				LOGV("Error: %d", errno);
-				// Stop the thread if the handle closes
-				break;
-			  } else if (errno == EPIPE && urb) {
-				LOGV("Error: EPIPE");
-				// On EPIPE, clear halt on the endpoint
-				ioctl(fd, USBDEVFS_CLEAR_HALT, &urb->endpoint);
-				// Re-submit the URB
-				if (urb) {
-				  ioctl(fd, USBDEVFS_SUBMITURB, urb);
-				}
-				urb = 0;
-			  }
-			}
-			if (urb) {
-			  char *buf = (char *) (urb->buffer);
-
-			  //sprintf(message, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
-			  //LOGV("%s", message);
-			  
-			  transport->get_current_state().push_back(Network::UserByte(buf));
-
-			  bool network_ready_to_read = false;
-
-			  // ioctl(fd, USBDEVFS_SUBMITURB, urb);
-			  urb = 0;
-
-			  for (std::vector<int>::const_iterator it = fd_list.begin();
-				   it != fd_list.end();
-				   it++) {
-				if (sel.read(*it)) {
-				  /* packet received from the network */
-				  /* we only read one socket each run */
-				  network_ready_to_read = true;
-				} else {
-				  //LOGV("No data from fd: %d", *it);
-				}
-			  }
-
-			  // LOGV("Ready to read: %d", network_ready_to_read);
-
-			  if (network_ready_to_read) {
-				LOGV("Read from network");
-				transport->recv();
-			  }
-			} else {
-			  LOGV("No urb");
+			  //LOGV("No data from fd: %d", *it);
 			}
 		  }
+
+		  // LOGV("Ready to read: %d", network_ready_to_read);
+
+		  if (network_ready_to_read) {
+			LOGV("Read from network");
+			transport->recv();
+		  }
+		} else {
+		  LOGV("No urb");
 		}
 	  }
+	}
+  }
 }
 
 extern "C" {
