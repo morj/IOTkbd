@@ -83,15 +83,30 @@ public:
     }
     FD_SET( fd, &all_fds );
   }
+  
+  static void add_fd_s(int fd)
+  {
+    return get_instance().add_fd(fd);
+  }
 
   void clear_fds( void )
   {
     FD_ZERO( &all_fds );
   }
+  
+  static void clear_fds_s(void)
+  {
+    return get_instance().clear_fds(fd);
+  }
 
   void clear_got_signal( void )
   {
     memset( got_signal, 0, sizeof( got_signal ) );
+  }
+  
+  static void clear_got_signal_s( void )
+  {
+    return get_instance().clear_got_signal();
   }
 
   static void add_signal( int signum )
@@ -112,6 +127,11 @@ public:
     sa.sa_handler = &handle_signal;
     fatal_assert( 0 == sigfillset( &sa.sa_mask ) );
     fatal_assert( 0 == sigaction( signum, &sa, NULL ) );
+  }
+  
+  static void add_signal_s( int signum )
+  {
+    return get_instance().add_signal(signum);
   }
 
   /* timeout unit: milliseconds; negative timeout means wait forever */
@@ -167,6 +187,11 @@ public:
 
     return ret;
   }
+  
+  static int select_s( int timeout )
+  {
+	return get_instance().select(timeout);
+  }
 
   bool read( int fd )
 #if FD_ISSET_IS_CONST
@@ -177,6 +202,11 @@ public:
     return FD_ISSET( fd, &read_fds );
   }
 
+  static bool read_s( int fd )
+  {
+    return get_instance().read(fd);
+  }
+  
   /* This method consumes a signal notification. */
   bool signal( int signum )
   {
@@ -186,6 +216,11 @@ public:
     bool rv = got_signal[ signum ];
     got_signal[ signum ] = 0;
     return rv;
+  }
+  
+  static bool signal_s( int signum )
+  {
+	  return get_instance().signal(signum);
   }
 
   /* This method does not consume signal notifications. */
@@ -198,6 +233,10 @@ public:
     return rv;
   }
 
+  static bool any_signal_s(void)
+  {
+	  return get_instance().any_signal();
+  }
 private:
   static const int MAX_SIGNAL_NUMBER = 64;
 

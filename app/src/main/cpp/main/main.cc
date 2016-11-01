@@ -101,12 +101,10 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 
   LOGV("Inited");
 
-  Select &sel = Select::get_instance();
-
   LOGV("Select inited");
 
   std::array<USBRequestBlock,2> urbs{{{8,129,SIGUSR2},
-  {4,130,SIGUSR1}}};
+                                      {4,130,SIGUSR1}}};
 
   //perhaps std::find will suffice instead?
   auto parent_iter = find_last(urbs.begin(), urbs.end(), 
@@ -120,10 +118,10 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 	LOGV("start loop");
 
 	unsigned int signal = parent_urb.getSignr();
-	sel.add_signal(signal);
+	Select::add_signal_s(signal);
 
 	while (true) {
-	  sel.clear_fds();
+	  Select::clear_fds_s();
 
 	  if (readKeyboard) {
 		parent_urb.submit(fd);
@@ -132,18 +130,18 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 	  for (std::vector<int>::const_iterator it = fd_list.begin();
 		   it != fd_list.end();
 		   it++) {
-		sel.add_fd(*it);
+		Select::add_fd_s(*it);
 	  }
 
 	  try {
-		if (sel.signal(signal)) {
+		if (Select::signal_s(signal)) {
 		  readKeyboard = true;
 		} else {
-		  int selected = sel.select(transport->wait_time());
+		  int selected = Select::select_s(transport->wait_time());
 		  if (selected < 0) {
 			perror("select");
 		  }
-		  readKeyboard = sel.signal(signal);
+		  readKeyboard = Select::signal_s(signal);
 		  // LOGV("Got fd: %d, from: %p", selected, (void *) &sel);
 		}
 
@@ -156,7 +154,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 		// LOGV("Read kbd");
 		struct usbdevfs_urb *urb = 0;
 		int iores = ioctl(fd, USBDEVFS_REAPURB, &urb);
-		sel.clear_got_signal();
+		Select::clear_got_signal_s();
 		if (iores) {
 		  LOGV("Ioctl returns %d", iores);
 		  if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {
@@ -190,7 +188,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 		  for (std::vector<int>::const_iterator it = fd_list.begin();
 			   it != fd_list.end();
 			   it++) {
-			if (sel.read(*it)) {
+			if (Select::read_s(*it)) {
 			  /* packet received from the network */
 			  /* we only read one socket each run */
 			  network_ready_to_read = true;
