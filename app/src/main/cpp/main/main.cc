@@ -36,6 +36,9 @@
 #include <linux/usbdevice_fs.h>
 
 #include <memory>
+#include <vector>
+#include <array>
+#include <algorithm>
 
 #include "main.h"
 #include "common.h"
@@ -46,6 +49,41 @@
 using namespace System;
 using namespace std;
 using namespace Network;
+
+class USBRequestBlock
+{
+	std::vector<char>  buffer;
+	usbdevfs_urb       urb;
+public:
+	USBRequestBlock(int buffer_length, unsigned char endpoint, unsigned int signr) :
+		buffer(buffer_length),
+		urb({USBDEVFS_URB_TYPE_INTERRUPT,endpoint,0,0,buffer.data(),buffer_length,0,0,0,0,signr})
+		{}
+		
+	int submit(int fd)
+	{
+		int result = ioctl(fd, USBDEVFS_SUBMITURB, &urb);
+		LOGV("Ret: %d", result);
+		LOGV("Err: %d", errno);
+		return result;
+	}
+	
+	unsigned int getSignr() const
+	{
+		return urb.signr;
+	}
+};
+
+template<class Iter, class Func> Iter find_last(Iter b, Iter e, Func f)
+{
+	Iter r = e;
+	for(; b != e; ++b)
+	{
+		if(f(*b))
+			r = b;
+	}
+	return r;
+}
 
 void notifyDeviceAttached(int fd, int endp)
 {
@@ -67,48 +105,28 @@ void notifyDeviceAttached(int fd, int endp)
 
 	  LOGV("Select inited");
 
-	  int urbcount = 2;
-	  struct usbdevfs_urb urbs[urbcount];
-	  memset(urbs, 0, sizeof(urbs));
-	  urbs[0].buffer_length = 8;
-	  urbs[1].buffer_length = 4;
+	  std::array<USBRequestBlock,2> urbs{{8,129,SIGUSR2},
+										 {4,130,SIGUSR1}};
 
-	  urbs[0].endpoint = 129;
-	  urbs[1].endpoint = 130;
-	  urbs[0].signr = SIGUSR2;
-	  urbs[1].signr = SIGUSR1;
-
-	  int success = 0;
-	  usbdevfs_urb parent_urb;
-	  // Submit URBs
-	  for (int i = 0; i < urbcount; i++) {
-		urbs[i].type = USBDEVFS_URB_TYPE_INTERRUPT;
-		//urbs[i].endpoint = (unsigned char) (0x80 | (i + 1));
-		urbs[i].buffer = malloc((size_t) urbs[i].buffer_length);
-		// urbs[i].signr = (unsigned int) (SIGRTMIN + 3 + i);
-		int result = ioctl(fd, USBDEVFS_SUBMITURB, urbs + i);
-		if (result >= 0) {
-		  parent_urb = urbs[i];
-		  success = 1;
-		}
-		LOGV("Ret: %d", result);
-		LOGV("Err: %d", errno);
-	  }
+	  //perhaps std::find will suffice instead?
+	  auto parent_iter = find_last(urbs.begin(), urbs.end(), 
+	       [fd](USBRequestBlock& urb)->bool{ return urb.submit(fb)>=0; });
 
 	  bool readKeyboard = false;
-	  if (!success) {
+	  if (parent_iter == urbs.end()) {
 		LOGV("no ioctl 1 :(");
 	  } else {
+		auto parent_urb = *parent_iter;
 		LOGV("start loop");
 
-		unsigned int signal = parent_urb.signr;
+		unsigned int signal = parent_urb.getSignr();
 		sel.add_signal(signal);
 
 		while (true) {
 		  sel.clear_fds();
 
 		  if (readKeyboard) {
-			ioctl(fd, USBDEVFS_SUBMITURB, parent_urb);
+			parent_urb.submit(fb);
 		  }
 		  std::vector<int> fd_list(transport->fds());
 		  for (std::vector<int>::const_iterator it = fd_list.begin();
