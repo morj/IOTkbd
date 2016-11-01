@@ -36,13 +36,15 @@
 #include "select.h"
 #include "common.h"
 
+#include <memory>
+
 using namespace Network;
 
 void runServer()
 {
   UserStream me, remote;
 
-  Transport<UserStream, UserStream> *n = new Transport<UserStream, UserStream>(me, remote, NULL, "1337");
+  auto n = std::make_unique<Transport<UserStream, UserStream>>(me, remote, NULL, "1337");
   LOGE("Port bound is %s, key is %s\n", n->port().c_str(), n->get_key().c_str());
  
   n->set_verbose();
@@ -81,7 +83,6 @@ void runServer()
     }
   }
 
-  delete n;
 }
 
 int main(int argc, char *argv[]) {
