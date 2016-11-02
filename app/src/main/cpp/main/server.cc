@@ -44,7 +44,7 @@ void runServer()
 {
   UserStream me, remote;
 
-  auto n = std::make_unique<Transport<UserStream, UserStream>>(me, remote, NULL, "1337");
+  auto n = std::make_unique<Transport<UserStream, UserStream>>(me, remote, nullptr, "1337");
   LOGE("Port bound is %s, key is %s\n", n->port().c_str(), n->get_key().c_str());
  
   n->set_verbose();
