@@ -55,8 +55,7 @@ namespace Network {
 
     UserByte(const char *s_c) {
       std::copy(s_c, s_c + 8, c);
-      LOGD("Create copy: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", c[0], c[1], c[2], c[3], c[4],
-           c[5], c[6], c[7]);
+      // LOGD("Create copy: %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]);
     }
 
     bool operator==(const UserByte &other) const {

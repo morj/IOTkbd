@@ -73,11 +73,16 @@ int main(int argc, char *argv[]) {
         n->recv();
 
         if (n->get_remote_state_num() != last_num) {
-          for (auto &&event : *n->get_latest_remote_state().state.a()) {
+          Network::UserStream us;
+          us.apply_string( n->get_remote_diff() );
+
+          for (auto &&event : *us.a()) {
             const char *buf = event.userbyte.c;
             LOGE("%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3],
                  buf[4], buf[5], buf[6], buf[7]);
           }
+
+          LOGE("--- %d\n", (int)n->get_latest_remote_state().state.size());
 
           last_num = n->get_remote_state_num();
         }

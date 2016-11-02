@@ -169,32 +169,31 @@ Java_com_github_morj_iotkbd_MainActivity_notifyDeviceAttached(JNIEnv *env, jclas
           
           transport->get_current_state().push_back(Network::UserByte(buf));
 
-          bool network_ready_to_read = false;
-
-          // ioctl(fd, USBDEVFS_SUBMITURB, urb);
           urb = 0;
-
-          for (std::vector<int>::const_iterator it = fd_list.begin();
-               it != fd_list.end();
-               it++) {
-            if (sel.read(*it)) {
-              /* packet received from the network */
-              /* we only read one socket each run */
-              network_ready_to_read = true;
-            } else {
-              //LOGV("No data from fd: %d", *it);
-            }
-          }
-
-          // LOGV("Ready to read: %d", network_ready_to_read);
-
-          if (network_ready_to_read) {
-            LOGV("Read from network");
-            transport->recv();
-          }
         } else {
           LOGV("No urb");
         }
+      }
+
+      bool network_ready_to_read = false;
+
+      for (std::vector<int>::const_iterator it = fd_list.begin();
+           it != fd_list.end();
+           it++) {
+        if (sel.read(*it)) {
+          /* packet received from the network */
+          /* we only read one socket each run */
+          network_ready_to_read = true;
+        } else {
+          //LOGV("No data from fd: %d", *it);
+        }
+      }
+
+      // LOGV("Ready to read: %d", network_ready_to_read);
+
+      if (network_ready_to_read) {
+        LOGV("Read from network (local %d)", transport->get_current_state().size());
+        transport->recv();
       }
     }
   }
