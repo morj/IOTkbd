@@ -115,22 +115,20 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
   if (parent_iter == urbs.end()) {
 	LOGV("no ioctl 1 :(");
   } else {
-	auto parent_urb = *parent_iter;
+    auto parent_urb = *parent_iter;
 	LOGV("start loop");
 
 	unsigned int signal = parent_urb.getSignr();
 	Select::add_signal_s(signal);
 
 	while (true) {
-	  Select::clear_fds_s();
-
-	  if (readKeyboard) {
+      if (readKeyboard) {
 		parent_urb.submit(fd);
 	  }
 	  std::vector<int> fd_list(transport->fds());
 	  std::for_each(fd_list.begin(),fd_list.end(),Select::add_fd_s);
 
-	  try {
+      try {
 		if (Select::signal_s(signal)) {
 		  readKeyboard = true;
 		} else {
@@ -144,22 +142,22 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 
 		transport->tick();
 	  } catch (const std::exception &e) {
-		LOGE("Client error: %d\n", 0); //e.what()
-	  }
+        LOGE("Client error: %d\n", 0); //e.what()
+      }
 
-	  if (readKeyboard) {
+      if (readKeyboard) {
 		// LOGV("Read kbd");
 		struct usbdevfs_urb *urb = 0;
 		int iores = ioctl(fd, USBDEVFS_REAPURB, &urb);
 		Select::clear_got_signal_s();
 		if (iores) {
-		  LOGV("Ioctl returns %d", iores);
+          LOGV("Ioctl returns %d", iores);
 		  if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {
 			LOGV("Error: %d", errno);
 			// Stop the thread if the handle closes
 			break;
 		  } else if (errno == EPIPE && urb) {
-			LOGV("Error: EPIPE");
+            LOGV("Error: EPIPE");
 			// On EPIPE, clear halt on the endpoint
 			ioctl(fd, USBDEVFS_CLEAR_HALT, &urb->endpoint);
 			// Re-submit the URB
@@ -167,34 +165,33 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 			  ioctl(fd, USBDEVFS_SUBMITURB, urb);
 			}
 			urb = 0;
-		  }
+         }
 		}
 		if (urb) {
-		  char *buf = (char *) (urb->buffer);
+          char *buf = (char *) (urb->buffer);
 
-		  //sprintf(message, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
-		  //LOGV("%s", message);
-		  
-		  transport->get_current_state().push_back(Network::UserByte(buf));
+          //sprintf(message, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
+          //LOGV("%s", message);
+          
+          transport->get_current_state().push_back(Network::UserByte(buf));
 
-		  // ioctl(fd, USBDEVFS_SUBMITURB, urb);
 		  urb = 0;
-		  
-		  bool network_ready_to_read = std::accumulate(fd_list.begin(),fd_list.end(),false,
+        } else {
+          LOGV("No urb");
+        }
+      }
+
+      bool network_ready_to_read = std::accumulate(fd_list.begin(),fd_list.end(),false,
 		    //perhaps can swap || args here?
 		    [](bool r, int fd)->bool { return Select::read_s(fd)||r; });
 
 		  // LOGV("Ready to read: %d", network_ready_to_read);
 
 		  if (network_ready_to_read) {
-			LOGV("Read from network");
+			LOGV("Read from network (local %d)", transport->get_current_state().size());
 			transport->recv();
 		  }
-		} else {
-		  LOGV("No urb");
-		}
-	  }
-	}
+    }
   }
 }
 
