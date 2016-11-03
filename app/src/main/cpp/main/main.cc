@@ -75,17 +75,6 @@ public:
   }
 };
 
-template<class Iter, class Func> Iter find_last(Iter b, Iter e, Func f)
-{
-  Iter r = e;
-  for(; b != e; ++b)
-  { 
-    if(f(*b))
-      r = b;
-  }
-  return r;
-}
-
 void notifyDeviceAttached(int fd, int endp)
 {
 LOGV("Device attached: %d, endp: %d", fd, endp);
@@ -107,8 +96,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
   std::array<USBRequestBlock,2> urbs{{{8,129,SIGUSR2},
                                       {4,130,SIGUSR1}}};
 
-  //perhaps std::find will suffice instead?
-  auto parent_iter = find_last(urbs.begin(), urbs.end(), 
+  auto parent_iter = std::find_if(urbs.begin(), urbs.end(), 
 	   [fd](USBRequestBlock& urb)->bool{ return urb.submit(fd)>=0; });
 
   bool readKeyboard = false;
@@ -181,13 +169,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
         }
       }
 
-      bool network_ready_to_read = std::accumulate(fd_list.begin(),fd_list.end(),false,
-		    //perhaps can swap || args here?
-		    [](bool r, int fd)->bool { return Select::read_s(fd)||r; });
-
-		  // LOGV("Ready to read: %d", network_ready_to_read);
-
-		  if (network_ready_to_read) {
+		  if (std::any_of(fd_list.begin(),fd_list.end(),Select::read_s)) {
 			LOGV("Read from network (local %d)", transport->get_current_state().size());
 			transport->recv();
 		  }
