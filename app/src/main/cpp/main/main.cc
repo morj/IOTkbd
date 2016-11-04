@@ -61,9 +61,13 @@ public:
     urb = {USBDEVFS_URB_TYPE_INTERRUPT, endpoint, 0, 0, buffer.data(), buffer_length, 0, 0, 0, 0, signr};
   }
 
+	int submitSilently(int fd) {
+		return ioctl(fd, USBDEVFS_SUBMITURB, &urb);
+	}
+
   int submit(int fd)
   {
-    int result = ioctl(fd, USBDEVFS_SUBMITURB, &urb);
+    int result = submitSilently(fd);
     LOGV("Ret: %d", result);
     LOGV("Err: %d", errno);
     return result;
@@ -87,7 +91,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
   auto transport = std::make_unique<Transport<UserStream, UserStream>>(
 		me, remote, key.printable_key().c_str(), SERVER, PORTS
 	);
-  
+
 
   LOGV("Inited");
 
@@ -96,7 +100,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
   std::array<USBRequestBlock,2> urbs{{{8,129,SIGUSR2},
                                       {4,130,SIGUSR1}}};
 
-  auto parent_iter = std::find_if(urbs.begin(), urbs.end(), 
+  auto parent_iter = std::find_if(urbs.begin(), urbs.end(),
 	   [fd](USBRequestBlock& urb)->bool{ return urb.submit(fd)>=0; });
 
   bool readKeyboard = false;
@@ -111,7 +115,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 
 	while (true) {
       if (readKeyboard) {
-		parent_urb.submit(fd);
+		parent_urb.submitSilently(fd);
 	  }
 	  std::vector<int> fd_list(transport->fds());
 	  std::for_each(fd_list.begin(),fd_list.end(),Select::add_fd_s);
@@ -140,7 +144,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 		Select::clear_got_signal_s();
 		if (iores) {
           LOGV("Ioctl returns %d", iores);
-		  if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {
+			if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {
 			LOGV("Error: %d", errno);
 			// Stop the thread if the handle closes
 			break;
@@ -160,7 +164,7 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 
           //sprintf(message, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
           //LOGV("%s", message);
-          
+
           transport->get_current_state().push_back(Network::UserByte(buf));
 
 		  urb = 0;
