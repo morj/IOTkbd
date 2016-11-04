@@ -56,10 +56,10 @@ class USBRequestBlock
   std::vector<char>  buffer;
   usbdevfs_urb       urb;
 public:
-  USBRequestBlock(int buffer_length, unsigned char endpoint, unsigned int signr) :
-  buffer(buffer_length),
-  urb({USBDEVFS_URB_TYPE_INTERRUPT,endpoint,0,0,buffer.data(),buffer_length,0,0,0,0,signr})
-  {}
+  USBRequestBlock(int buffer_length, unsigned char endpoint, unsigned int signr) : buffer(buffer_length)
+  {
+    urb = {USBDEVFS_URB_TYPE_INTERRUPT, endpoint, 0, 0, buffer.data(), buffer_length, 0, 0, 0, 0, signr};
+  }
 
   int submit(int fd)
   {
