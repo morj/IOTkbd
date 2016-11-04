@@ -49,7 +49,10 @@ import android.os.Handler;
 import android.util.Log;
 import android.util.SparseArray;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 import static android.hardware.usb.UsbConstants.USB_CLASS_HID;
 import static android.hardware.usb.UsbConstants.USB_CLASS_PER_INTERFACE;
@@ -145,7 +148,13 @@ public class MainActivity extends Activity {
 
                         if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                             if (device != null) {
-                                final UsbEndpoint endp = getInterestingEndpoint(device);
+                                final List<UsbEndpoint> endpoints = getInterestingEndpoints(device);
+                                final UsbEndpoint endp;
+                                if (endpoints.isEmpty()) {
+                                    throw new IllegalStateException("No endpoints found");
+                                } else {
+                                    endp = endpoints.get(0);
+                                }
                                 final int fd = connectToDevice(device);
                                 Log.d(APPNAME, "device file descriptor: " + fd + ", path: " + device.getDeviceName());
 
@@ -239,9 +248,13 @@ public class MainActivity extends Activity {
         Log.d(APPNAME, "Devices found: " + devices.size());
 
         for (UsbDevice device : devices) {
-            UsbEndpoint endpoint = getInterestingEndpoint(device);
-            if (endpoint != null) {
+            List<UsbEndpoint> endpoints = getInterestingEndpoints(device);
+            final int size = endpoints.size();
+            if (size >= 0) {
                 Log.d(APPNAME, "Found a device: " + device);
+                if (size > 1) {
+                    Log.w(APPNAME, "Too many endpoints on device: " + device + " (" + size + ")");
+                }
 
                 manager.requestPermission(device, mPermissionIntent);
             } else {
@@ -250,9 +263,10 @@ public class MainActivity extends Activity {
         }
     }
 
-    private UsbEndpoint getInterestingEndpoint(UsbDevice device) {
+    private List<UsbEndpoint> getInterestingEndpoints(UsbDevice device) {
         // return device.getVendorId() == 9494 && device.getProductId() == 23;
 
+        final List<UsbEndpoint> result = new ArrayList<>();
         if (device.getDeviceClass() == USB_CLASS_PER_INTERFACE) {
             int size = device.getInterfaceCount();
             for (int i = 0; i < size; i++) {
@@ -263,13 +277,13 @@ public class MainActivity extends Activity {
                         UsbEndpoint ep = intf.getEndpoint(j);
                         if (ep.getType() == USB_ENDPOINT_XFER_INT && ep.getDirection() == USB_DIR_IN) {
                             Log.d(APPNAME, "Endpoint type: " + ep.getType());
-                            return ep;
+                            result.add(ep);
                         }
                     }
                 }
             }
         }
 
-        return null;
+        return Collections.unmodifiableList(result);
     }
 }
