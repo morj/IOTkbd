@@ -53,17 +53,20 @@ using namespace Network;
 
 class USBRequestBlock
 {
-  std::vector<char>  buffer;
-  usbdevfs_urb       urb;
+  std::vector<char> buffer;
+  usbdevfs_urb urb;
 public:
-  USBRequestBlock(int buffer_length, unsigned char endpoint, unsigned int signr) : buffer(buffer_length)
+  USBRequestBlock(int buffer_length, unsigned char endpoint, unsigned int signr) : buffer(
+      buffer_length)
   {
-    urb = {USBDEVFS_URB_TYPE_INTERRUPT, endpoint, 0, 0, buffer.data(), buffer_length, 0, 0, 0, 0, signr};
+    urb = {USBDEVFS_URB_TYPE_INTERRUPT, endpoint, 0, 0, buffer.data(), buffer_length, 0, 0, 0, 0,
+           signr};
   }
 
-	int submitSilently(int fd) {
-		return ioctl(fd, USBDEVFS_SUBMITURB, &urb);
-	}
+  int submitSilently(int fd)
+  {
+    return ioctl(fd, USBDEVFS_SUBMITURB, &urb);
+  }
 
   int submit(int fd)
   {
@@ -81,85 +84,86 @@ public:
 
 void notifyDeviceAttached(int fd, int endp)
 {
-LOGV("Device attached: %d, endp: %d", fd, endp);
+  LOGV("Device attached: %d, endp: %d", fd, endp);
 
-Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
+  Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
   //Session session(key);
 
   UserStream me, remote;
 
   auto transport = std::make_unique<Transport<UserStream, UserStream>>(
-		me, remote, key.printable_key().c_str(), SERVER, PORTS
-	);
+      me, remote, key.printable_key().c_str(), SERVER, PORTS
+  );
 
 
   LOGV("Inited");
 
   LOGV("Select inited");
 
-  std::array<USBRequestBlock,2> urbs{{{8,129,SIGUSR2},
-                                      {4,130,SIGUSR1}}};
+  std::array<USBRequestBlock, 2> urbs{{{8, 129, SIGUSR2},
+                                          {4, 130, SIGUSR1}}};
 
   auto parent_iter = std::find_if(urbs.begin(), urbs.end(),
-	   [fd](USBRequestBlock& urb)->bool{ return urb.submit(fd)>=0; });
+                                  [fd](USBRequestBlock &urb) -> bool
+                                  { return urb.submit(fd) >= 0; });
 
   bool readKeyboard = false;
   if (parent_iter == urbs.end()) {
-	LOGV("no ioctl 1 :(");
+    LOGV("no ioctl 1 :(");
   } else {
     auto parent_urb = *parent_iter;
-	LOGV("start loop");
+    LOGV("start loop");
 
-	unsigned int signal = parent_urb.getSignr();
-	Select::add_signal_s(signal);
+    unsigned int signal = parent_urb.getSignr();
+    Select::add_signal_s(signal);
 
-	while (true) {
+    while (true) {
       if (readKeyboard) {
-		parent_urb.submitSilently(fd);
-	  }
-	  std::vector<int> fd_list(transport->fds());
-	  std::for_each(fd_list.begin(),fd_list.end(),Select::add_fd_s);
+        parent_urb.submitSilently(fd);
+      }
+      std::vector<int> fd_list(transport->fds());
+      std::for_each(fd_list.begin(), fd_list.end(), Select::add_fd_s);
 
       try {
-		if (Select::signal_s(signal)) {
-		  readKeyboard = true;
-		} else {
-		  int selected = Select::select_s(transport->wait_time());
-		  if (selected < 0) {
-			perror("select");
-		  }
-		  readKeyboard = Select::signal_s(signal);
-		  // LOGV("Got fd: %d, from: %p", selected, (void *) &sel);
-		}
+        if (Select::signal_s(signal)) {
+          readKeyboard = true;
+        } else {
+          int selected = Select::select_s(transport->wait_time());
+          if (selected < 0) {
+            perror("select");
+          }
+          readKeyboard = Select::signal_s(signal);
+          // LOGV("Got fd: %d, from: %p", selected, (void *) &sel);
+        }
 
-		transport->tick();
-	  } catch (const std::exception &e) {
+        transport->tick();
+      } catch (const std::exception &e) {
         LOGE("Client error: %d\n", 0); //e.what()
       }
 
       if (readKeyboard) {
-		// LOGV("Read kbd");
-		struct usbdevfs_urb *urb = 0;
-		int iores = ioctl(fd, USBDEVFS_REAPURB, &urb);
-		Select::clear_got_signal_s();
-		if (iores) {
+        // LOGV("Read kbd");
+        struct usbdevfs_urb *urb = 0;
+        int iores = ioctl(fd, USBDEVFS_REAPURB, &urb);
+        Select::clear_got_signal_s();
+        if (iores) {
           LOGV("Ioctl returns %d", iores);
-			if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {
-			LOGV("Error: %d", errno);
-			// Stop the thread if the handle closes
-			break;
-		  } else if (errno == EPIPE && urb) {
+          if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {
+            LOGV("Error: %d", errno);
+            // Stop the thread if the handle closes
+            break;
+          } else if (errno == EPIPE && urb) {
             LOGV("Error: EPIPE");
-			// On EPIPE, clear halt on the endpoint
-			ioctl(fd, USBDEVFS_CLEAR_HALT, &urb->endpoint);
-			// Re-submit the URB
-			if (urb) {
-			  ioctl(fd, USBDEVFS_SUBMITURB, urb);
-			}
-			urb = 0;
-         }
-		}
-		if (urb) {
+            // On EPIPE, clear halt on the endpoint
+            ioctl(fd, USBDEVFS_CLEAR_HALT, &urb->endpoint);
+            // Re-submit the URB
+            if (urb) {
+              ioctl(fd, USBDEVFS_SUBMITURB, urb);
+            }
+            urb = 0;
+          }
+        }
+        if (urb) {
           char *buf = (char *) (urb->buffer);
 
           //sprintf(message, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
@@ -167,16 +171,16 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 
           transport->get_current_state().push_back(Network::UserByte(buf));
 
-		  urb = 0;
+          urb = 0;
         } else {
           LOGV("No urb");
         }
       }
 
-		  if (std::any_of(fd_list.begin(),fd_list.end(),Select::read_s)) {
-			LOGV("Read from network (local %d)", transport->get_current_state().size());
-			transport->recv();
-		  }
+      if (std::any_of(fd_list.begin(), fd_list.end(), Select::read_s)) {
+        LOGV("Read from network (local %d)", transport->get_current_state().size());
+        transport->recv();
+      }
     }
   }
 }
@@ -184,21 +188,23 @@ Base64Key key("790RmsZ+DtKOGSeVqsS6DA");
 extern "C" {
 JNIEXPORT void JNICALL
 Java_com_github_morj_iotkbd_MainActivity_notifyDeviceAttached(JNIEnv *env, jclass type, jint fd,
-                                                              jint endp) {
-	  try{
-		  notifyDeviceAttached(static_cast<int>(fd), static_cast<int>(endp));
-	  }
-	  catch(CryptoException e) {
-			LOGV("Crypto exception: %s", e.text.c_str());
-		  }
-	}
+                                                              jint endp)
+{
+  try {
+    notifyDeviceAttached(static_cast<int>(fd), static_cast<int>(endp));
+  }
+  catch (CryptoException e) {
+    LOGV("Crypto exception: %s", e.text.c_str());
+  }
+}
 }
 
 extern "C" {
 JNIEXPORT void JNICALL
-Java_com_github_morj_iotkbd_MainActivity_notifyDeviceDetached(JNIEnv *env, jclass type, jint fd) {
-	  LOGV("Device detached: %d", fd);
-	}
+Java_com_github_morj_iotkbd_MainActivity_notifyDeviceDetached(JNIEnv *env, jclass type, jint fd)
+{
+  LOGV("Device detached: %d", fd);
+}
 }
 
 /*static inline uint16_t cpu_to_le16(const uint16_t x) {

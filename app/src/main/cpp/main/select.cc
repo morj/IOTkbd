@@ -36,11 +36,11 @@ fd_set Select::dummy_fd_set;
 
 sigset_t Select::dummy_sigset;
 
-void Select::handle_signal( int signum )
+void Select::handle_signal(int signum)
 {
-  fatal_assert( signum >= 0 );
-  fatal_assert( signum <= MAX_SIGNAL_NUMBER );
+  fatal_assert(signum >= 0);
+  fatal_assert(signum <= MAX_SIGNAL_NUMBER);
 
   Select &sel = get_instance();
-  sel.got_signal[ signum ] = 1;
+  sel.got_signal[signum] = 1;
 }

@@ -40,7 +40,9 @@
 #define PORTS "1337"   //The port on which to send data
 
 #ifdef __ANDROID_API__
+
 #include <android/log.h>
+
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR, APPNAME, __VA_ARGS__)
 #define  LOGW(...)  __android_log_print(ANDROID_LOG_WARN, APPNAME, __VA_ARGS__)
 #define  LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG, APPNAME, __VA_ARGS__)

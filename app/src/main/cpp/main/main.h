@@ -49,20 +49,20 @@ int createSocket(sockaddr_in &si_other, socklen_t &slen);
 
 namespace System {
 
-   /* class Device {
-    private:
-        // static const int CONSTANT = 1112123;
-        jint fd;
+  /* class Device {
+   private:
+       // static const int CONSTANT = 1112123;
+       jint fd;
 
-    public:
-        Device(jint fd) : fd(fd) {
-        }
+   public:
+       Device(jint fd) : fd(fd) {
+       }
 
-        ~Device() {
-        }
+       ~Device() {
+       }
 
-        // Device &operator=(const Device &);
-        *//* effective limit on terminal size *//*
+       // Device &operator=(const Device &);
+       *//* effective limit on terminal size *//*
 
 
 
@@ -85,7 +85,7 @@ namespace System {
         }
     };*/
 
-    // Device &get_device(void);
+  // Device &get_device(void);
 }
 
 #endif //IOTKBD_DEVICE_H

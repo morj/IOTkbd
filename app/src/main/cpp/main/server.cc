@@ -46,7 +46,7 @@ void runServer()
 
   auto n = std::make_unique<Transport<UserStream, UserStream>>(me, remote, nullptr, "1337");
   LOGE("Port bound is %s, key is %s\n", n->port().c_str(), n->get_key().c_str());
- 
+
   n->set_verbose();
 
   Select &sel = Select::get_instance();
@@ -70,7 +70,7 @@ void runServer()
 
         if (n->get_remote_state_num() != last_num) {
           Network::UserStream us;
-          us.apply_string( n->get_remote_diff() );
+          us.apply_string(n->get_remote_diff());
 
           for (auto &&event : *us.a()) {
             const char *buf = event.userbyte.c;
@@ -78,7 +78,7 @@ void runServer()
                  buf[4], buf[5], buf[6], buf[7]);
           }
 
-          LOGE("--- %d\n", (int)n->get_latest_remote_state().state.size());
+          LOGE("--- %d\n", (int) n->get_latest_remote_state().state.size());
 
           last_num = n->get_remote_state_num();
         }
@@ -90,9 +90,10 @@ void runServer()
 
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   try {
-   runServer();
+    runServer();
   } catch (const std::exception &e) {
     LOGE("Fatal startup error: %s\n", e.what());
     exit(1);
