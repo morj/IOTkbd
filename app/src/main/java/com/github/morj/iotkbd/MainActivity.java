@@ -153,7 +153,7 @@ public class MainActivity extends Activity {
                                     new Thread(new Runnable() {
                                         @Override
                                         public void run() {
-                                            notifyDeviceAttached(fd, endp == null ? -1 : endp.getEndpointNumber());
+                                            notifyDeviceAttached(fd, endp == null ? -1 : endp.getAddress());
                                         }
                                     }, "I/O daemon for " + fd).start();
                                 }

@@ -100,18 +100,12 @@ void notifyDeviceAttached(int fd, int endp)
 
   LOGV("Select inited");
 
-  std::array<USBRequestBlock, 2> urbs{{{8, 129, SIGUSR2},
-                                          {4, 130, SIGUSR1}}};
-
-  auto parent_iter = std::find_if(urbs.begin(), urbs.end(),
-                                  [fd](USBRequestBlock &urb) -> bool
-                                  { return urb.submit(fd) >= 0; });
+  USBRequestBlock parent_urb({8, (unsigned char) endp, SIGUSR2});
 
   bool readKeyboard = false;
-  if (parent_iter == urbs.end()) {
+  if (parent_urb.submit(fd) < 0) {
     LOGV("no ioctl 1 :(");
   } else {
-    auto parent_urb = *parent_iter;
     LOGV("start loop");
 
     unsigned int signal = parent_urb.getSignr();
