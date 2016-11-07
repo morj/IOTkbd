@@ -18,6 +18,7 @@ include_directories(src/main/cpp/config/)
 include_directories(src/main/cpp/libmosh/src/crypto/)
 include_directories(src/main/cpp/libmosh/src/util/)
 include_directories(src/main/cpp/main/)
+include_directories(src/main/cpp/input/)
 include_directories(src/main/cpp/libmosh/src/network/)
 include_directories(src/main/cpp/statesync/)
 include_directories(src/main/cpp/protobuf-generated/)
@@ -122,6 +123,10 @@ endif()
 # cmake --build .
 if (${PLATFORM} STREQUAL "pc")
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+
+  add_library( iotkbd-input SHARED
+               src/main/cpp/input/keymap.cc )
+
   add_executable(IODkbdServer
                    src/main/cpp/main/server.cc
                    src/main/cpp/main/select.cc )
@@ -131,5 +136,6 @@ if (${PLATFORM} STREQUAL "pc")
                            mynetwork
                            statesync
                            util
+                           iotkbd-input
                            z )
 endif()

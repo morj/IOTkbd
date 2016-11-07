@@ -72,7 +72,7 @@ string UserStream::diff_from(const UserStream &existing) const {
   while (my_it != actions.end()) {
     switch (my_it->type) {
       case UserByteType: {
-        const char *bytes = my_it->userbyte.c;
+        const unsigned char *bytes = my_it->userbyte.c;
         Instruction *new_inst = output.add_instruction();
         new_inst->MutableExtension(keystroke)->set_keys(bytes, 8);
       }

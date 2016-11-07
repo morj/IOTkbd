@@ -47,7 +47,7 @@ namespace Network {
   class UserByte {
     /* user keystroke -- not part of the host-source state machine*/
   public:
-    char c[8];
+    unsigned char c[8];
 
     /* The user-source byte. We don't try to interpret the charset */
 
