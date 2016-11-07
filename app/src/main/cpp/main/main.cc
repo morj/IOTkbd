@@ -112,32 +112,40 @@ void notifyDeviceAttached(int fd, int endp)
     Select::add_signal_s(signal);
 
     while (true) {
+      Select::clear_fds_s();
+
       if (readKeyboard) {
+        readKeyboard = false;
+        Select::clear_got_signal_s();
         parent_urb.submitSilently(fd);
       }
       std::vector<int> fd_list(transport->fds());
       std::for_each(fd_list.begin(), fd_list.end(), Select::add_fd_s);
 
       try {
-        if (Select::signal_s(signal)) {
-          readKeyboard = true;
-        } else {
-          int selected = Select::select_s(transport->wait_time());
-          if (selected < 0) {
-            perror("select");
-          }
-          readKeyboard = Select::signal_s(signal);
-          // LOGV("Got fd: %d, from: %p", selected, (void *) &sel);
+        readKeyboard = Select::signal_s(signal);
+        int timeout = transport->wait_time();
+        if (readKeyboard) {
+          LOGV("Already read!");
+          timeout = 1;
+        }
+        if (timeout > 1000) {
+          LOGV("Will wait for: %d", timeout);
+        }
+        if (Select::select_s(timeout) < 0) {
+          perror("select");
         }
 
-        transport->tick();
+        readKeyboard = readKeyboard || Select::signal_s(signal);
       } catch (const std::exception &e) {
         LOGE("Client error: %d\n", 0); //e.what()
       }
 
+      transport->tick();
+
+      struct usbdevfs_urb *urb = 0;
       if (readKeyboard) {
         // LOGV("Read kbd");
-        struct usbdevfs_urb *urb = 0;
         int iores = ioctl(fd, USBDEVFS_REAPURB, &urb);
         Select::clear_got_signal_s();
         if (iores) {
@@ -157,18 +165,21 @@ void notifyDeviceAttached(int fd, int endp)
             urb = 0;
           }
         }
-        if (urb) {
-          char *buf = (char *) (urb->buffer);
 
-          //sprintf(message, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
-          //LOGV("%s", message);
-
-          transport->get_current_state().push_back(Network::UserByte(buf));
-
-          urb = 0;
-        } else {
+        if (!urb) {
           LOGV("No urb");
         }
+      }
+
+      if (urb) {
+        char *buf = (char *) (urb->buffer);
+
+        //sprintf(message, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
+        //LOGV("%s", message);
+
+        transport->get_current_state().push_back(Network::UserByte(buf));
+
+        urb = 0;
       }
 
       if (std::any_of(fd_list.begin(), fd_list.end(), Select::read_s)) {
