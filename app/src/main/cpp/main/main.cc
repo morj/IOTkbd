@@ -82,6 +82,7 @@ public:
   }
 };
 
+// #define WAIT_STEP 5
 void notifyDeviceAttached(int fd, int endp)
 {
   LOGV("Device attached: %d, endp: %d", fd, endp);
@@ -102,41 +103,44 @@ void notifyDeviceAttached(int fd, int endp)
 
   USBRequestBlock parent_urb({8, (unsigned char) endp, SIGUSR2});
 
+  unsigned int signal = parent_urb.getSignr();
+  Select::add_signal_s(signal);
   bool readKeyboard = false;
   if (parent_urb.submit(fd) < 0) {
     LOGV("no ioctl 1 :(");
   } else {
     LOGV("start loop");
 
-    unsigned int signal = parent_urb.getSignr();
-    Select::add_signal_s(signal);
-
     while (true) {
       Select::clear_fds_s();
 
       if (readKeyboard) {
         readKeyboard = false;
-        Select::clear_got_signal_s();
         parent_urb.submitSilently(fd);
       }
       std::vector<int> fd_list(transport->fds());
       std::for_each(fd_list.begin(), fd_list.end(), Select::add_fd_s);
 
       try {
-        readKeyboard = Select::signal_s(signal);
         int timeout = transport->wait_time();
-        if (readKeyboard) {
-          LOGV("Already read!");
-          timeout = 1;
-        }
         if (timeout > 1000) {
           LOGV("Will wait for: %d", timeout);
         }
-        if (Select::select_s(timeout) < 0) {
+        /*int waited = 0;
+        do {
+          int control = signal;
+          waited += WAIT_STEP;
+          if (Select::select_s(control, waited > timeout ? (WAIT_STEP - (waited - timeout)) : WAIT_STEP) < 0) {
+            perror("select");
+          }
+          readKeyboard = control == 1 || Select::signal_s(signal);
+        } while (!readKeyboard && waited < timeout);*/
+
+        int control = signal;
+        if (Select::select_s(control, timeout)) {
           perror("select");
         }
-
-        readKeyboard = readKeyboard || Select::signal_s(signal);
+        readKeyboard = control == 1 || Select::signal_s(signal);
       } catch (const std::exception &e) {
         LOGE("Client error: %d\n", 0); //e.what()
       }
@@ -145,9 +149,7 @@ void notifyDeviceAttached(int fd, int endp)
 
       struct usbdevfs_urb *urb = 0;
       if (readKeyboard) {
-        // LOGV("Read kbd");
         int iores = ioctl(fd, USBDEVFS_REAPURB, &urb);
-        Select::clear_got_signal_s();
         if (iores) {
           LOGV("Ioctl returns %d", iores);
           if (errno == ENODEV || errno == ENOENT || errno == ESHUTDOWN) {

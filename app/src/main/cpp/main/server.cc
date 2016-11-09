@@ -255,6 +255,7 @@ void runServer(int kbd)
 
   Select &sel = Select::get_instance();
   uint64_t last_num = n->get_remote_state_num();
+  int nothing = -1;
   while (true) {
     try {
       sel.clear_fds();
@@ -262,7 +263,7 @@ void runServer(int kbd)
       assert(fd_list.size() == 1); /* servers don't hop */
       int network_fd = fd_list.back();
       sel.add_fd(network_fd);
-      if (sel.select(n->wait_time()) < 0) {
+      if (sel.select(nothing, n->wait_time()) < 0) {
         perror("select");
         exit(1);
       }

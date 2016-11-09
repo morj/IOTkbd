@@ -38,7 +38,10 @@
 #include <signal.h>
 #include <sys/select.h>
 #include <assert.h>
+#include <atomic>
 
+#include "common.h"
+#include "config.h"
 #include "fatal_assert.h"
 #include "timestamp.h"
 
@@ -136,10 +139,19 @@ public:
   }
 
   /* timeout unit: milliseconds; negative timeout means wait forever */
-  int select(int timeout)
+  int select(int& what, int timeout)
   {
     memcpy(&read_fds, &all_fds, sizeof(read_fds));
-    // clear_got_signal();
+    if (what >= 0) {
+      int signal = what;
+      what = std::atomic_exchange(got_signal + signal, 0);
+      if (what) {
+        LOGV("signal %d received outside pselect", signal);
+        timeout = 1;
+      }
+    } else {
+      clear_got_signal();
+    }
 
 #ifdef HAVE_PSELECT
     struct timespec ts;
@@ -189,9 +201,9 @@ public:
     return ret;
   }
 
-  static int select_s(int timeout)
+  static int select_s(int& what, int timeout)
   {
-    return get_instance().select(timeout);
+    return get_instance().select(what, timeout);
   }
 
   bool read(int fd)
@@ -213,30 +225,13 @@ public:
   {
     fatal_assert(signum >= 0);
     fatal_assert(signum <= MAX_SIGNAL_NUMBER);
-    /* XXX This requires a guard against concurrent signals. */
-    bool rv = got_signal[signum];
-    got_signal[signum] = 0;
-    return rv;
+    int value = std::atomic_exchange(got_signal + signum, 0);
+    return value != 0;
   }
 
   static bool signal_s(int signum)
   {
     return get_instance().signal(signum);
-  }
-
-  /* This method does not consume signal notifications. */
-  bool any_signal(void) const
-  {
-    bool rv = false;
-    for (int i = 0; i < MAX_SIGNAL_NUMBER; i++) {
-      rv |= got_signal[i];
-    }
-    return rv;
-  }
-
-  static bool any_signal_s(void)
-  {
-    return get_instance().any_signal();
   }
 
 private:
@@ -248,7 +243,7 @@ private:
 
   /* We assume writes to these ints are atomic, though we also try to mask out
      concurrent signal handlers. */
-  int got_signal[MAX_SIGNAL_NUMBER + 1];
+  std::atomic<int> got_signal[MAX_SIGNAL_NUMBER + 1];
 
   fd_set all_fds, read_fds;
 
