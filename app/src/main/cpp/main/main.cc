@@ -82,7 +82,7 @@ public:
   }
 };
 
-// #define WAIT_STEP 5
+#define WAIT_STEP 5
 void notifyDeviceAttached(int fd, int endp)
 {
   LOGV("Device attached: %d, endp: %d", fd, endp);
@@ -126,7 +126,7 @@ void notifyDeviceAttached(int fd, int endp)
         if (timeout > 1000) {
           LOGV("Will wait for: %d", timeout);
         }
-        /*int waited = 0;
+        int waited = 0;
         do {
           int control = signal;
           waited += WAIT_STEP;
@@ -134,13 +134,7 @@ void notifyDeviceAttached(int fd, int endp)
             perror("select");
           }
           readKeyboard = control == 1 || Select::signal_s(signal);
-        } while (!readKeyboard && waited < timeout);*/
-
-        int control = signal;
-        if (Select::select_s(control, timeout)) {
-          perror("select");
-        }
-        readKeyboard = control == 1 || Select::signal_s(signal);
+        } while (!readKeyboard && waited < timeout);
       } catch (const std::exception &e) {
         LOGE("Client error: %d\n", 0); //e.what()
       }
