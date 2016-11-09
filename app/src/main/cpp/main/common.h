@@ -54,7 +54,7 @@
 #define  LOGW(...)  fprintf( stderr, __VA_ARGS__)
 #define  LOGD(...)  fprintf( stderr, __VA_ARGS__)
 #define  LOGI(...)  fprintf( stderr, __VA_ARGS__)
-#define  LOGV(...)  LOGV(__VA_ARGS__)
+#define  LOGV(...)  fprintf( stderr, __VA_ARGS__)
 #endif
 
 #endif //IOTKBD_COMMON_H
