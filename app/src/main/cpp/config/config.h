@@ -204,7 +204,7 @@
 #undef HAVE_POSIX_MEMALIGN
 
 /* Define to 1 if you have the `pselect' function. */
-#undef HAVE_PSELECT
+#define HAVE_PSELECT 1
 
 /* Define to 1 if you have the <pty.h> header file. */
 #undef HAVE_PTY_H
